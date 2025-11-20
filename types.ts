@@ -25,6 +25,8 @@ export interface User {
   email: string;
   table?: string;
   points: number;
+  wins: number;
+  gamesPlayed: number;
 }
 
 export interface GameRequest {

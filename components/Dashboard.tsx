@@ -1,29 +1,29 @@
 import React, { useState } from 'react';
 import { RetroButton } from './RetroButton';
 import { User, GameRequest, Reward, RedeemedReward } from '../types';
+import { GameLobby } from './GameLobby';
+import { CreateGameModal } from './CreateGameModal';
+import { UserProfileModal } from './UserProfileModal';
 import { 
   Wifi, 
   MapPin, 
-  Search, 
   Trophy, 
   Gift, 
-  Users,
-  Gamepad2,
-  ChevronRight,
-  X,
   Check,
   ShoppingBag,
   Ticket,
-  History,
   Coffee,
   Percent,
-  Cookie
+  Cookie,
+  Gamepad2
 } from 'lucide-react';
 
 // Mock data - Başlangıç verileri
 const INITIAL_REQUESTS: GameRequest[] = [
   { id: 1, hostName: 'GamerTr_99', gameType: 'Taş Kağıt Makas', points: 150, table: 'MASA04', status: 'waiting' },
   { id: 2, hostName: 'CoffeeLover', gameType: 'Kelime Eşleştirme', points: 320, table: 'MASA12', status: 'waiting' },
+  { id: 3, hostName: 'ProPlayerX', gameType: 'Taş Kağıt Makas', points: 500, table: 'MASA01', status: 'waiting' },
+  { id: 4, hostName: 'DuoMaster', gameType: 'Kelime Eşleştirme', points: 50, table: 'MASA03', status: 'waiting' },
 ];
 
 const AVAILABLE_REWARDS: Reward[] = [
@@ -49,10 +49,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
   const [matchError, setMatchError] = useState('');
   const [loadingTable, setLoadingTable] = useState(false);
   
-  // Oyun Kurma Modali State'leri
+  // Oyun Kurma Modali State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newGameType, setNewGameType] = useState('Taş Kağıt Makas');
-  const [newGamePoints, setNewGamePoints] = useState(50);
+
+  // Profil Modali State
+  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Ödül State'leri
   const [redeemedRewards, setRedeemedRewards] = useState<RedeemedReward[]>([]);
@@ -78,9 +80,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
   };
 
   // OYUN KURMA FONKSİYONU
-  const handleCreateGame = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleCreateGame = (gameType: string, points: number) => {
     if (!isMatched) {
       alert("Oyun kurmak için önce bir masaya bağlanmalısın!");
       setIsCreateModalOpen(false);
@@ -90,8 +90,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
     const newRequest: GameRequest = {
       id: Date.now(),
       hostName: currentUser.username,
-      gameType: newGameType,
-      points: newGamePoints,
+      gameType: gameType,
+      points: points,
       table: tableCode,
       status: 'waiting'
     };
@@ -111,6 +111,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
     // Listeden oyunu kaldır (Eşleşme sağlandı)
     setRequests(requests.filter(req => req.id !== id));
     alert("Oyun Eşleşmesi Başarılı! Oyun ekranına yönlendiriliyorsunuz...");
+  };
+
+  // PROFİL GÖRÜNTÜLEME
+  const handleViewProfile = (username: string) => {
+     // Mock: Gerçek uygulamada API'den kullanıcı bilgisi çekilir.
+     // Şimdilik listedeki isme göre basit bir obje veya current user oluşturuyoruz.
+     if (username === currentUser.username) {
+         setProfileUser(currentUser);
+     } else {
+         // Fake diğer kullanıcı
+         setProfileUser({
+             id: 999,
+             username: username,
+             email: 'player@cafe.com',
+             points: Math.floor(Math.random() * 2000),
+             wins: Math.floor(Math.random() * 50),
+             gamesPlayed: Math.floor(Math.random() * 100)
+         });
+     }
+     setIsProfileOpen(true);
   };
 
   // ÖDÜL ALMA FONKSİYONU
@@ -148,60 +168,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
     <div className="pt-24 pb-12 px-4 min-h-screen bg-[#0f141a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f141a] to-black relative">
       
       {/* Create Game Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsCreateModalOpen(false)}></div>
-          <div className="relative bg-[#1a1f2e] border-4 border-blue-500 p-6 w-full max-w-md shadow-2xl animate-bounce-x">
-             <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
-               <h3 className="font-pixel text-xl text-white">YENİ OYUN KUR</h3>
-               <button onClick={() => setIsCreateModalOpen(false)} className="text-red-500 hover:text-red-400"><X /></button>
-             </div>
-             
-             <form onSubmit={handleCreateGame} className="space-y-4">
-               <div>
-                 <label className="block text-gray-400 font-pixel text-xs mb-2">OYUN TÜRÜ</label>
-                 <select 
-                    value={newGameType}
-                    onChange={(e) => setNewGameType(e.target.value)}
-                    className="w-full bg-black border-2 border-gray-600 text-white p-3 font-retro text-xl focus:border-blue-500 outline-none"
-                 >
-                   <option>Taş Kağıt Makas</option>
-                   <option>Kelime Eşleştirme</option>
-                 </select>
-               </div>
-               <div>
-                 <label className="block text-gray-400 font-pixel text-xs mb-2">BAHİS PUANI</label>
-                 <input 
-                    type="number" 
-                    min="10"
-                    max={currentUser.points}
-                    value={newGamePoints}
-                    onChange={(e) => setNewGamePoints(Number(e.target.value))}
-                    className="w-full bg-black border-2 border-gray-600 text-white p-3 font-retro text-xl focus:border-blue-500 outline-none"
-                 />
-                 <span className="text-xs text-gray-500 mt-1 block">Mevcut Puanın: {currentUser.points}</span>
-               </div>
-               <RetroButton type="submit" className="w-full mt-4">LOBİYE GÖNDER</RetroButton>
-             </form>
-          </div>
-        </div>
-      )}
+      <CreateGameModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateGame}
+        maxPoints={currentUser.points}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal 
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        user={profileUser}
+      />
 
       <div className="max-w-7xl mx-auto">
         
         {/* Top Status Bar (Retro HUD) */}
         <div className="mb-8 bg-slate-900/80 border border-slate-700 rounded-lg p-4 flex flex-wrap justify-between items-center gap-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md sticky top-20 z-40">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center border-2 border-white shadow-lg">
+          <button 
+             onClick={() => handleViewProfile(currentUser.username)}
+             className="flex items-center gap-4 hover:bg-white/5 p-2 rounded transition-colors group"
+          >
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center border-2 border-white shadow-lg group-hover:scale-105 transition-transform">
                <span className="font-pixel text-xl">{currentUser.username.substring(0,2).toUpperCase()}</span>
             </div>
-            <div>
-              <h2 className="font-pixel text-lg md:text-xl text-white">HOŞGELDİN, {currentUser.username}</h2>
+            <div className="text-left">
+              <h2 className="font-pixel text-lg md:text-xl text-white group-hover:text-blue-300 transition-colors">HOŞGELDİN, {currentUser.username}</h2>
               <div className="flex items-center gap-2 text-xs font-mono text-green-400">
                 <span className="animate-pulse">●</span> SYSTEM ONLINE
               </div>
             </div>
-          </div>
+          </button>
           
           <div className="flex items-center gap-6 bg-black/40 px-6 py-2 rounded-full border border-slate-700">
             <div className="flex flex-col items-end">
@@ -275,87 +273,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-black/40 p-3 rounded border border-gray-700">
                         <span className="block text-xs text-gray-500 mb-1">Oyun Sayısı</span>
-                        <span className="font-retro text-2xl text-white">0</span>
+                        <span className="font-retro text-2xl text-white">{currentUser.gamesPlayed}</span>
                     </div>
                     <div className="bg-black/40 p-3 rounded border border-gray-700">
                         <span className="block text-xs text-gray-500 mb-1">Galibiyet</span>
-                        <span className="font-retro text-2xl text-green-400">0</span>
+                        <span className="font-retro text-2xl text-green-400">{currentUser.wins}</span>
                     </div>
                 </div>
             </div>
           </div>
 
           {/* MIDDLE PANEL: Step 2 - Game Lobby */}
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="group relative bg-blue-600 hover:bg-blue-500 transition-all duration-200 h-32 rounded-xl border-b-8 border-blue-800 active:border-b-0 active:translate-y-2 overflow-hidden flex flex-col items-center justify-center gap-2"
-                >
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/pixel-weave.png')] opacity-20"></div>
-                    <Gamepad2 size={40} className="text-white group-hover:scale-110 transition-transform" />
-                    <span className="font-pixel text-xl text-white z-10">OYUN KUR</span>
-                </button>
-                
-                <button className="group relative bg-purple-600 hover:bg-purple-500 transition-all duration-200 h-32 rounded-xl border-b-8 border-purple-800 active:border-b-0 active:translate-y-2 overflow-hidden flex flex-col items-center justify-center gap-2">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/pixel-weave.png')] opacity-20"></div>
-                    <Search size={40} className="text-white group-hover:scale-110 transition-transform" />
-                    <span className="font-pixel text-xl text-white z-10">RAKİP ARA</span>
-                </button>
-            </div>
-
-            {/* Active Requests List */}
-            <div className="flex-1 bg-[#151921] border-2 border-gray-700 rounded-xl overflow-hidden flex flex-col min-h-[400px]">
-                <div className="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
-                    <h3 className="font-pixel text-white flex items-center gap-2">
-                        <Users size={18} className="text-green-400" />
-                        AKTİF İSTEKLER (LOBİ)
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        <span className="text-xs text-gray-400 font-mono">LIVE</span>
-                    </div>
-                </div>
-
-                <div className="p-4 space-y-3 overflow-y-auto max-h-[400px] custom-scrollbar">
-                    {requests.length === 0 ? (
-                      <div className="text-center py-10 text-gray-500 font-pixel">
-                        ŞU AN AKTİF OYUN YOK...
-                      </div>
-                    ) : (
-                      requests.map((req) => (
-                        <div key={req.id} className="bg-[#1f2937] hover:bg-[#2d3748] p-4 rounded-lg border border-gray-700 transition-colors group flex flex-col md:flex-row items-center justify-between gap-4">
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <div className="w-10 h-10 bg-gray-700 rounded flex items-center justify-center font-pixel text-lg">
-                                    {req.hostName.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                    <div className="text-white font-bold flex items-center gap-2">
-                                        {req.hostName}
-                                        <span className="text-[10px] bg-blue-900 text-blue-200 px-1.5 rounded border border-blue-700">{req.table}</span>
-                                    </div>
-                                    <div className="text-sm text-gray-400">{req.gameType} • <span className="text-yellow-400">{req.points} Puan</span></div>
-                                </div>
-                            </div>
-                            
-                            {req.hostName !== currentUser.username && (
-                              <button 
-                                onClick={() => handleJoinGame(req.id)}
-                                className="w-full md:w-auto px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-pixel text-sm rounded border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
-                              >
-                                  KABUL ET
-                              </button>
-                            )}
-                            {req.hostName === currentUser.username && (
-                               <span className="text-xs text-gray-500 font-pixel px-4">SENİN OYUNUN</span>
-                            )}
-                        </div>
-                      ))
-                    )}
-                </div>
-            </div>
+          <div className="lg:col-span-2">
+             <GameLobby 
+                currentUser={currentUser}
+                requests={requests}
+                onJoinGame={handleJoinGame}
+                onCreateGameClick={() => setIsCreateModalOpen(true)}
+                onViewProfile={handleViewProfile}
+             />
           </div>
 
           {/* RIGHT PANEL: Step 3 - Rewards */}

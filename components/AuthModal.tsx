@@ -61,7 +61,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           id: Date.now(),
           username,
           email,
-          points: 100 // Start bonus
+          points: 100, // Start bonus
+          wins: 0,
+          gamesPlayed: 0
         };
         
         onRegister(newUser);

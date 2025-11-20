@@ -11,8 +11,8 @@ import { User } from './types';
 
 // Mock Database - Fake Users
 const MOCK_USERS: User[] = [
-  { id: 1, username: 'DemoUser', email: 'demo@cafe.com', points: 1250 },
-  { id: 2, username: 'Admin', email: 'admin@cafe.com', points: 9999 }
+  { id: 1, username: 'DemoUser', email: 'demo@cafe.com', points: 1250, wins: 12, gamesPlayed: 25 },
+  { id: 2, username: 'Admin', email: 'admin@cafe.com', points: 9999, wins: 99, gamesPlayed: 100 }
 ];
 
 const App: React.FC = () => {
