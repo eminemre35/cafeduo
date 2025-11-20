@@ -2,23 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Lock, ArrowRight, AlertTriangle } from 'lucide-react';
 import { RetroButton } from './RetroButton';
 import { User as UserType } from '../types';
+import { api } from '../lib/api';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode: 'login' | 'register';
   onLoginSuccess: (user: UserType) => void;
-  existingUsers: UserType[];
-  onRegister: (newUser: UserType) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ 
   isOpen, 
   onClose, 
   initialMode, 
-  onLoginSuccess,
-  existingUsers,
-  onRegister
+  onLoginSuccess
 }) => {
   const [mode, setMode] = useState(initialMode);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,58 +34,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setPassword('');
   }, [initialMode, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simulate Network Delay
-    setTimeout(() => {
+    try {
       if (mode === 'register') {
-        // REGISTER VALIDATION
-        if (existingUsers.some(u => u.email === email)) {
-          setError('Bu e-posta adresi zaten kayıtlı.');
-          setIsLoading(false);
-          return;
-        }
-        if (username.length < 3) {
-           setError('Kullanıcı adı en az 3 karakter olmalı.');
-           setIsLoading(false);
-           return;
-        }
-
-        const newUser: UserType = {
-          id: Date.now(),
-          username,
-          email,
-          points: 100, // Start bonus
-          wins: 0,
-          gamesPlayed: 0
-        };
-        
-        onRegister(newUser);
-        onLoginSuccess(newUser);
+        // Register Call
+        const user = await api.auth.register(username, email, password);
+        onLoginSuccess(user);
       } else {
-        // LOGIN VALIDATION
-        const user = existingUsers.find(u => u.email === email);
-        if (!user) {
-          setError('Kullanıcı bulunamadı. Lütfen kayıt olun.');
-          setIsLoading(false);
-          return;
-        }
-        // Note: In a real app, check password hash here.
-        // For this demo, any password > 6 chars works if email matches.
-        if (password.length < 6) {
-           setError('Şifre en az 6 karakter olmalıdır.');
-           setIsLoading(false);
-           return;
-        }
-
+        // Login Call
+        const user = await api.auth.login(email, password);
         onLoginSuccess(user);
       }
-      
+    } catch (err: any) {
+      setError(err.message || 'Bir hata oluştu.');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   if (!isOpen) return null;
@@ -176,7 +141,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Şifre (min 6 karakter)" 
+                placeholder="Şifre" 
                 className="w-full bg-black/30 border-2 border-gray-600 focus:border-blue-500 text-white py-3 pl-10 pr-4 outline-none font-retro text-xl placeholder:text-gray-600 transition-all"
               />
             </div>

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RetroButton } from './RetroButton';
 import { User, GameRequest, Reward, RedeemedReward } from '../types';
 import { GameLobby } from './GameLobby';
 import { CreateGameModal } from './CreateGameModal';
 import { UserProfileModal } from './UserProfileModal';
+import { api } from '../lib/api';
 import { 
   Wifi, 
   MapPin, 
@@ -17,14 +18,6 @@ import {
   Cookie,
   Gamepad2
 } from 'lucide-react';
-
-// Mock data - Başlangıç verileri
-const INITIAL_REQUESTS: GameRequest[] = [
-  { id: 1, hostName: 'GamerTr_99', gameType: 'Taş Kağıt Makas', points: 150, table: 'MASA04', status: 'waiting' },
-  { id: 2, hostName: 'CoffeeLover', gameType: 'Kelime Eşleştirme', points: 320, table: 'MASA12', status: 'waiting' },
-  { id: 3, hostName: 'ProPlayerX', gameType: 'Taş Kağıt Makas', points: 500, table: 'MASA01', status: 'waiting' },
-  { id: 4, hostName: 'DuoMaster', gameType: 'Kelime Eşleştirme', points: 50, table: 'MASA03', status: 'waiting' },
-];
 
 const AVAILABLE_REWARDS: Reward[] = [
   { id: 1, title: 'Bedava Filtre Kahve', cost: 500, description: 'Günün yorgunluğunu at.', icon: 'coffee' },
@@ -43,7 +36,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser }) => {
   // State Yönetimi
-  const [requests, setRequests] = useState<GameRequest[]>(INITIAL_REQUESTS);
+  const [requests, setRequests] = useState<GameRequest[]>([]);
   const [tableCode, setTableCode] = useState('');
   const [isMatched, setIsMatched] = useState(false);
   const [matchError, setMatchError] = useState('');
@@ -60,13 +53,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
   const [redeemedRewards, setRedeemedRewards] = useState<RedeemedReward[]>([]);
   const [rewardTab, setRewardTab] = useState<'shop' | 'inventory'>('shop');
 
+  // Load Games from API
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const games = await api.games.list();
+        setRequests(games);
+      } catch (error) {
+        console.error("Failed to load games", error);
+      }
+    };
+    fetchGames();
+    
+    // Polling for new games (Real-time effect)
+    const interval = setInterval(fetchGames, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // MASA BAĞLAMA FONKSİYONU
   const handleTableSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setMatchError('');
     setLoadingTable(true);
 
-    // Backend gecikme simülasyonu
     setTimeout(() => {
       const formattedCode = tableCode.toUpperCase().replace(/\s/g, '');
       if (VALID_TABLES.includes(formattedCode)) {
@@ -80,47 +89,51 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
   };
 
   // OYUN KURMA FONKSİYONU
-  const handleCreateGame = (gameType: string, points: number) => {
+  const handleCreateGame = async (gameType: string, points: number) => {
     if (!isMatched) {
       alert("Oyun kurmak için önce bir masaya bağlanmalısın!");
       setIsCreateModalOpen(false);
       return;
     }
 
-    const newRequest: GameRequest = {
-      id: Date.now(),
-      hostName: currentUser.username,
-      gameType: gameType,
-      points: points,
-      table: tableCode,
-      status: 'waiting'
-    };
-
-    setRequests([newRequest, ...requests]);
-    setIsCreateModalOpen(false);
-    alert("Oyun Lobiye Eklendi! Rakip bekleniyor...");
+    try {
+      const newGame = await api.games.create({
+        hostName: currentUser.username,
+        gameType,
+        points,
+        table: tableCode
+      });
+      
+      setRequests([newGame, ...requests]);
+      setIsCreateModalOpen(false);
+      alert("Oyun Lobiye Eklendi! Rakip bekleniyor...");
+    } catch (error) {
+      alert("Oyun kurulurken hata oluştu.");
+    }
   };
 
   // OYUNA KATILMA FONKSİYONU
-  const handleJoinGame = (id: number) => {
+  const handleJoinGame = async (id: number) => {
     if (!isMatched) {
       alert("Oyuna katılmak için önce bir masaya bağlanmalısın!");
       return;
     }
 
-    // Listeden oyunu kaldır (Eşleşme sağlandı)
-    setRequests(requests.filter(req => req.id !== id));
-    alert("Oyun Eşleşmesi Başarılı! Oyun ekranına yönlendiriliyorsunuz...");
+    try {
+      await api.games.join(id);
+      setRequests(requests.filter(req => req.id !== id));
+      alert("Oyun Eşleşmesi Başarılı! Oyun ekranına yönlendiriliyorsunuz...");
+    } catch (error) {
+      alert("Oyuna katılırken hata oluştu.");
+    }
   };
 
   // PROFİL GÖRÜNTÜLEME
   const handleViewProfile = (username: string) => {
-     // Mock: Gerçek uygulamada API'den kullanıcı bilgisi çekilir.
-     // Şimdilik listedeki isme göre basit bir obje veya current user oluşturuyoruz.
      if (username === currentUser.username) {
          setProfileUser(currentUser);
      } else {
-         // Fake diğer kullanıcı
+         // Not: Gerçek projede burada api.users.get(username) çağrılır
          setProfileUser({
              id: 999,
              username: username,
@@ -167,7 +180,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
   return (
     <div className="pt-24 pb-12 px-4 min-h-screen bg-[#0f141a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f141a] to-black relative">
       
-      {/* Create Game Modal */}
       <CreateGameModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -175,7 +187,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
         maxPoints={currentUser.points}
       />
 
-      {/* User Profile Modal */}
       <UserProfileModal 
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
@@ -184,7 +195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
 
       <div className="max-w-7xl mx-auto">
         
-        {/* Top Status Bar (Retro HUD) */}
+        {/* Top Status Bar */}
         <div className="mb-8 bg-slate-900/80 border border-slate-700 rounded-lg p-4 flex flex-wrap justify-between items-center gap-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md sticky top-20 z-40">
           <button 
              onClick={() => handleViewProfile(currentUser.username)}
@@ -214,7 +225,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
           
           {/* LEFT PANEL: Step 1 - Table & Status */}
           <div className="space-y-6">
-            {/* Table Match Card */}
             <div className={`bg-[#1a1f2e] border-4 ${isMatched ? 'border-green-600' : 'border-gray-600'} relative overflow-hidden transition-colors duration-500`}>
               <div className="bg-gray-800 p-2 flex items-center justify-between border-b-2 border-gray-600">
                 <span className="font-pixel text-xs text-gray-400">STEP 01 // CONNECTION</span>
@@ -261,13 +271,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
                 )}
               </div>
               
-              {/* Decor */}
               <div className="absolute bottom-0 right-0 p-4 opacity-10 pointer-events-none">
                  <Wifi size={120} />
               </div>
             </div>
 
-            {/* Quick Stats */}
             <div className="bg-[#1a1f2e] p-4 border-2 border-gray-700 rounded-lg">
                 <h4 className="font-pixel text-sm text-gray-400 mb-3">İSTATİSTİKLER</h4>
                 <div className="grid grid-cols-2 gap-4">
@@ -305,7 +313,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
                     </div>
                  </div>
 
-                 {/* Tabs */}
                  <div className="flex bg-black p-1 rounded-lg border border-gray-700">
                     <button 
                       onClick={() => setRewardTab('shop')}
@@ -364,7 +371,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
                  })}
                </div>
              ) : (
-                // INVENTORY TAB
                 <div className="bg-[#151921] border-2 border-dashed border-gray-700 rounded-xl p-6 min-h-[300px]">
                    {redeemedRewards.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-gray-500 py-12">
@@ -377,7 +383,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onUpdateUser 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {redeemedRewards.map((item) => (
                               <div key={item.redeemId} className="bg-[#fff8dc] text-black p-4 rounded relative overflow-hidden font-mono shadow-lg transform hover:scale-105 transition-transform">
-                                  {/* Ticket Jagged Edges */}
                                   <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-4 h-4 bg-[#151921] rounded-full"></div>
                                   <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-4 h-4 bg-[#151921] rounded-full"></div>
                                   

@@ -8,12 +8,7 @@ import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
 import { Dashboard } from './components/Dashboard';
 import { User } from './types';
-
-// Mock Database - Fake Users
-const MOCK_USERS: User[] = [
-  { id: 1, username: 'DemoUser', email: 'demo@cafe.com', points: 1250, wins: 12, gamesPlayed: 25 },
-  { id: 2, username: 'Admin', email: 'admin@cafe.com', points: 9999, wins: 99, gamesPlayed: 100 }
-];
+import { api } from './lib/api';
 
 const App: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -22,7 +17,6 @@ const App: React.FC = () => {
   // Auth State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
 
   const openLogin = () => {
     setAuthMode('login');
@@ -41,20 +35,22 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleRegisterUser = (newUser: User) => {
-    setUsers([...users, newUser]);
-  };
-
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
     window.scrollTo(0, 0);
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
-    setCurrentUser(updatedUser);
-    // Update in mock db as well
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+  const handleUpdateUser = async (updatedUser: User) => {
+    try {
+      // Optimistic UI update
+      setCurrentUser(updatedUser);
+      // API call
+      const serverUser = await api.users.update(updatedUser);
+      setCurrentUser(serverUser);
+    } catch (error) {
+      console.error("Failed to update user", error);
+    }
   };
 
   return (
@@ -81,8 +77,6 @@ const App: React.FC = () => {
         onClose={() => setIsAuthOpen(false)} 
         initialMode={authMode}
         onLoginSuccess={handleLoginSuccess}
-        existingUsers={users}
-        onRegister={handleRegisterUser}
       />
     </div>
   );
